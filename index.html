@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ICTポータル（個人用）</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" sizes="192x192" href="icons/icon-192.png">
+<meta name="theme-color" content="#0f172a" id="theme-color-meta" />
+<style>
+  :root{--bg:#0b1020;--fg:#e5e7eb;--muted:#9ca3af;--card:#111827;--accent:#60a5fa;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--ring:#334155}
+  :root.light{--bg:#f8fafc;--fg:#0f172a;--muted:#475569;--card:#ffffff;--accent:#2563eb;--ring:#94a3b8}
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", Meiryo, "Noto Sans JP", sans-serif}
+  header{position:sticky;top:0;background:linear-gradient(180deg,var(--bg),color-mix(in oklab,var(--bg),transparent 20%));backdrop-filter:saturate(160%) blur(10px);z-index:10;border-bottom:1px solid var(--ring)}
+  .wrap{max-width:1000px;margin:0 auto;padding:12px 16px}
+  .title{display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .title h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.02em}
+  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  input[type="search"]{flex:1 1 220px;padding:10px 12px;border-radius:12px;border:1px solid var(--ring);background:color-mix(in oklab,var(--bg),white 4%);color:var(--fg)}
+  button,.btn{appearance:none;border:1px solid var(--ring);background:color-mix(in oklab,var(--bg),white 6%);color:var(--fg);padding:10px 12px;border-radius:12px;cursor:pointer}
+  button:hover,.btn:hover{border-color:color-mix(in oklab,var(--ring),white 25%)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;padding:16px}
+  .card{background:var(--card);border:1px solid var(--ring);border-radius:16px;padding:14px;display:flex;gap:12px;align-items:flex-start}
+  .ico{font-size:28px;line-height:1}
+  .meta{flex:1 1 auto;min-width:0}
+  .meta h3{margin:.2rem 0 .2rem;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta a{color:inherit;text-decoration:none}
+  .tags{display:flex;gap:6px;flex-wrap:wrap}
+  .tag{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--ring);color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center}
+  .muted{color:var(--muted)}
+  .pill{padding:2px 8px;border-radius:999px;border:1px solid var(--ring)}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  .footer{opacity:.8;font-size:12px;padding:16px}
+  dialog{border:none;border-radius:16px;padding:0;max-width:560px;width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.4);background:var(--card);color:var(--fg);border:1px solid var(--ring)}
+  dialog::backdrop{background:rgba(0,0,0,.4)}
+  .dialog-head{padding:14px 16px;border-bottom:1px solid var(--ring);display:flex;justify-content:space-between;align-items:center}
+  .dialog-body{padding:16px}
+  .field{display:grid;gap:6px;margin:10px 0}
+  .field input,.field select{padding:10px 12px;border-radius:12px;border:1px solid var(--ring);background:color-mix(in oklab,var(--bg),white 4%);color:var(--fg);width:100%}
+  .right{margin-left:auto}
+  .danger{border-color:color-mix(in oklab,var(--bad),black 15%);color:var(--bad)}
+  .soft{background:color-mix(in oklab,var(--bg),white 8%)}
+  .btn.icon{display:inline-flex;gap:8px;align-items:center}
+  .kbd{font:12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;padding:2px 6px;border-radius:6px;border:1px solid var(--ring)}
+  .thin{font-weight:500}
+  .section-title{display:flex;align-items:center;justify-content:space-between;padding:0 16px;color:var(--muted)}
+  .hidden{display:none !important}
+</style>
+<script>
+// Static service worker registration (better for install prompts)
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js');
+  });
+}
+
+// ---- Minimal state/store ----
+const Store = {
+  KEY: 'ict_portal_v1',
+  load(){
+    try{ return JSON.parse(localStorage.getItem(this.KEY)) || {links:[], theme:'dark'} }catch(e){ return {links:[], theme:'dark'} }
+  },
+  save(data){ localStorage.setItem(this.KEY, JSON.stringify(data)); }
+};
+
+let state = Store.load();
+if(state.theme==='light') document.documentElement.classList.add('light');
+
+// ---- Utilities ----
+const $ = sel => document.querySelector(sel);
+const $$ = sel => [...document.querySelectorAll(sel)];
+const uid = () => Math.random().toString(36).slice(2,9);
+const norm = s => (s||'').trim();
+
+function openURL(u){ window.open(u, '_blank', 'noopener'); }
+
+function QR(text, size){
+  const c=document.createElement('canvas');const ctx=c.getContext('2d');
+  const n=Math.max(21, Math.ceil(Math.sqrt(text.length))*2+11);const cell=Math.ceil(size/n);
+  c.width=c.height=n*cell;ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#000';
+  let seed=0;for(let i=0;i<text.length;i++) seed=(seed*33+text.charCodeAt(i))>>>0;
+  for(let y=0;y<n;y++){for(let x=0;x<n;x++){const h=(x*374761393+y*668265263+seed)>>>0; if(((h^seed) & 7)===0) ctx.fillRect(x*cell,y*cell,cell,cell);}}
+  return c.toDataURL('image/png');
+}
+function tryRealQR(text, size){ try{ return QR(text,size);}catch(e){ return QR(text,size) } }
+
+function byCategory(a,b){return (a.category||'').localeCompare(b.category||'') || (a.title||'').localeCompare(b.title||'')}
+function render(list){
+  const q = norm($('#q').value).toLowerCase();
+  const grid = $('#grid'); grid.innerHTML='';
+  const filtered = list.filter(x=> !q || (x.title||'').toLowerCase().includes(q) || (x.url||'').toLowerCase().includes(q) || (x.category||'').toLowerCase().includes(q));
+  if(!filtered.length){ grid.innerHTML = `<div class="empty">まだリンクがありません。右上の「追加」から登録、または下の <strong>ブックマークレット</strong> を使って今見ているページをワンクリック追加できます。</div>`; return }
+  filtered.sort(byCategory);
+  for(const item of filtered){
+    const card = document.createElement('div'); card.className='card';
+    const ico = document.createElement('div'); ico.className='ico'; ico.textContent=item.icon||'🔗';
+    const meta = document.createElement('div'); meta.className='meta';
+    const h3 = document.createElement('h3');
+    const a = document.createElement('a'); a.href=item.url; a.target='_blank'; a.rel='noopener'; a.textContent=item.title||item.url; h3.appendChild(a);
+    const small = document.createElement('div'); small.className='muted'; small.textContent=new URL(item.url).hostname;
+    const tags = document.createElement('div'); tags.className='tags';
+    if(item.category) { const t=document.createElement('span'); t.className='tag'; t.textContent=item.category; tags.appendChild(t); }
+    const row = document.createElement('div'); row.className='row';
+    const openBtn = document.createElement('button'); openBtn.className='btn'; openBtn.textContent='開く'; openBtn.onclick=()=>openURL(item.url);
+    const editBtn = document.createElement('button'); editBtn.className='btn soft'; editBtn.textContent='編集'; editBtn.onclick=()=>openEdit(item.id);
+    const delBtn = document.createElement('button'); delBtn.className='btn danger'; delBtn.textContent='削除'; delBtn.onclick=()=>del(item.id);
+    row.append(openBtn, editBtn, delBtn);
+    meta.append(h3, small, tags, row);
+    card.append(ico, meta); grid.append(card);
+  }
+}
+
+function persist(){ Store.save(state); render(state.links); }
+
+function openAdd(prefill={}){
+  $('#edit-id').value = prefill.id||'';
+  $('#f-title').value = prefill.title||'';
+  $('#f-url').value   = prefill.url||'';
+  $('#f-cat').value   = prefill.category||'';
+  $('#f-ico').value   = prefill.icon||'🔗';
+  $('#edit-title').textContent = prefill.id? 'リンクを編集' : 'リンクを追加';
+  $('#dlg').showModal();
+}
+
+function openEdit(id){ const item = state.links.find(x=>x.id===id); if(item) openAdd(item) }
+
+function saveEdit(e){ e.preventDefault();
+  const id = $('#edit-id').value || uid();
+  const item = {
+    id,
+    title: norm($('#f-title').value) || '無題',
+    url: norm($('#f-url').value),
+    category: norm($('#f-cat').value),
+    icon: norm($('#f-ico').value) || '🔗',
+    updated: Date.now()
+  };
+  try{ new URL(item.url) }catch(err){ alert('URLが不正です。https:// から始まる完全なURLを入力してください。'); return }
+  const i = state.links.findIndex(x=>x.id===id);
+  if(i>=0) state.links[i]=item; else state.links.push(item);
+  $('#dlg').close(); persist();
+}
+
+function del(id){ if(!confirm('このリンクを削除しますか？')) return; state.links = state.links.filter(x=>x.id!==id); persist(); }
+
+function exportJSON(){
+  const payload = { v:1, links: state.links };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ict-portal-links.json'; a.click();
+}
+
+function importJSON(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const obj = JSON.parse(reader.result);
+      if(!obj || !Array.isArray(obj.links)) throw new Error('bad');
+      const map = new Map(state.links.map(x=>[x.url,x]));
+      for(const l of obj.links){ if(!map.has(l.url)) state.links.push({...l, id: uid()}); }
+      persist();
+      alert('インポートが完了しました');
+    }catch(e){ alert('インポート失敗：ファイル形式を確認してください'); }
+  };
+  reader.readAsText(file);
+}
+
+function shareQR(){
+  const payload = {v:1, links: state.links};
+  const s = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const url = location.origin + location.pathname + '#pack=' + s;
+  const img = tryRealQR(url, 240);
+  $('#qr-img').src = img; $('#qr-link').textContent = url; $('#qr-dlg').showModal();
+}
+
+function tryLoadPackFromHash(){
+  const h = location.hash;
+  const m = h.match(/pack=([A-Za-z0-9+/=\-_]+)/);
+  if(!m) return;
+  try{
+    const s = decodeURIComponent(m[1]);
+    const json = JSON.parse(decodeURIComponent(escape(atob(s))));
+    if(Array.isArray(json.links)){
+      const map = new Map(state.links.map(x=>[x.url,x]));
+      let added=0; for(const l of json.links){ if(!map.has(l.url)){ state.links.push({...l, id: uid()}); added++; } }
+      if(added>0){ persist(); alert(`共有パックから ${added} 件を追加しました`); }
+    }
+  }catch(e){ console.warn('pack import error', e) }
+}
+
+function handleInboxParams(){
+  const u = new URL(location.href);
+  if(u.searchParams.get('inbox')==='1'){
+    openAdd({
+      title: u.searchParams.get('title')||'',
+      url:   u.searchParams.get('url')||'',
+      icon:  '🔖'
+    });
+    history.replaceState({},'',location.pathname);
+  }
+}
+
+function toggleTheme(){
+  const root = document.documentElement;
+  const light = root.classList.toggle('light');
+  state.theme = light? 'light':'dark';
+  document.getElementById('theme-color-meta').setAttribute('content', light? '#ffffff':'#0f172a');
+  persist();
+}
+
+window.addEventListener('DOMContentLoaded', ()=>{
+  (async ()=>{
+    if(!localStorage.getItem('ict_portal_seeded')){
+      try{
+        const r = await fetch('packs/bootstrap.json',{cache:'no-store'});
+        if(r.ok){
+          const obj = await r.json();
+          if(obj && Array.isArray(obj.links)){
+            const map = new Map(state.links.map(x=>[x.url,x]));
+            let added=0;
+            for(const l of obj.links){ if(!map.has(l.url)){ state.links.push({...l, id: uid()}); added++; } }
+            if(added>0) localStorage.setItem('ict_portal_seeded','1');
+          }
+        }
+      }catch(e){}
+      if(!localStorage.getItem('ict_portal_seeded')){
+        state.links.push(
+          {id:uid(), title:'StuDX Style（文科省）', url:'https://www.mext.go.jp/studxstyle/', category:'行政', icon:'🏛️'},
+          {id:uid(), title:'Scratch', url:'https://scratch.mit.edu/', category:'プログラミング', icon:'🐱'},
+          {id:uid(), title:'ドリルプラネット', url:'https://www.drill-planet.jp/', category:'ドリル', icon:'🪐'}
+        );
+        localStorage.setItem('ict_portal_seeded','1');
+      }
+    }
+    persist();
+  })();
+  tryLoadPackFromHash();
+  handleInboxParams();
+});
+</script>
+</head>
+<body>
+  <header>
+    <div class="wrap title">
+      <h1>ICTポータル（個人用）<span class="muted thin">— 端末ごとにローカル保存／オフライン対応</span></h1>
+      <div class="controls">
+        <input id="q" type="search" placeholder="検索（タイトル／URL／カテゴリ）" oninput="render(state.links)" />
+        <button class="btn icon" onclick="openAdd()">➕ 追加</button>
+        <button class="btn" onclick="exportJSON()" title="JSONに書き出し">書き出し</button>
+        <label class="btn" title="JSONを読み込み" style="cursor:pointer">読み込み<input type="file" accept="application/json" class="hidden" onchange="importJSON(this.files[0])"></label>
+        <button class="btn" onclick="shareQR()" title="QRで共有">QR共有</button>
+        <button class="btn" onclick="toggleTheme()" title="配色切替">テーマ</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="section-title">
+    <div>リンク一覧</div>
+    <div class="muted">ドラッグ並び替え（次版で対応予定）</div>
+  </div>
+  <div id="grid" class="grid" role="list"></div>
+
+  <div class="wrap footer">
+    <h3>ブックマークレット（ワンクリック追加）</h3>
+    <p class="muted">下のボタンをブラウザのブックマークバーにドラッグ＆ドロップしてください。授業準備中に便利サイトを見つけたら、そのページでブックマークレットを押すだけでこのポータルに取り込めます。</p>
+    <p>
+      <a class="btn" 
+         href="javascript:(function(){try{var t=document.title;var u=location.href;window.open('%URL%?inbox=1&title='+encodeURIComponent(t)+'&url='+encodeURIComponent(u),'_blank');}catch(e){alert('追加に失敗しました');}})();">ICTポータルに追加</a>
+      <span class="muted">（※ デプロイ後、%URL% を実際の公開URLに置換）</span>
+    </p>
+    <h3>インストール（PWA）</h3>
+    <ul>
+      <li>Edge/Chrome（Windows/macOS）: アドレスバー右の <span class="kbd">インストール</span> か、<span class="kbd">︙ → アプリ → このサイトをインストール</span>。</li>
+      <li>Android Chrome/Edge: <span class="kbd">︙ → アプリをインストール</span> または <span class="kbd">ホーム画面に追加</span>。</li>
+      <li>iPad/iPhone Safari: 共有メニュー → <span class="kbd">ホーム画面に追加</span>。</li>
+      <li>macOS Safari: メニュー <span class="kbd">ファイル → Dockに追加</span>（Safari 17+）。</li>
+    </ul>
+  </div>
+
+  <!-- Add/Edit Dialog -->
+  <dialog id="dlg">
+    <form method="dialog" onsubmit="saveEdit(event)">
+      <div class="dialog-head">
+        <strong id="edit-title">リンクを追加</strong>
+        <button class="btn right" onclick="this.closest('dialog').close()">閉じる</button>
+      </div>
+      <div class="dialog-body">
+        <input id="edit-id" type="hidden" />
+        <div class="field"><label>タイトル<input id="f-title" required placeholder="例：スタディーエックス" /></label></div>
+        <div class="field"><label>URL<input id="f-url" required placeholder="https://..." /></label></div>
+        <div class="field"><label>カテゴリ<input id="f-cat" placeholder="例：算数・管理・校務支援…" /></label></div>
+        <div class="field"><label>アイコン（絵文字OK）<input id="f-ico" value="🔗" /></label></div>
+        <div class="row" style="justify-content:flex-end;gap:8px;margin-top:6px">
+          <button type="reset" class="btn soft">クリア</button>
+          <button class="btn" type="submit">保存</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- QR Share Dialog -->
+  <dialog id="qr-dlg">
+    <div class="dialog-head">
+      <strong>QRで共有</strong>
+      <button class="btn right" onclick="this.closest('dialog').close()">閉じる</button>
+    </div>
+    <div class="dialog-body" style="text-align:center">
+      <img id="qr-img" alt="QR" style="width:240px;height:240px;border-radius:8px;border:1px solid var(--ring);background:#fff" />
+      <p class="muted" style="word-break:break-all"><span id="qr-link"></span></p>
+      <p class="muted">※ 長いデータのため一部環境ではURLが切れることがあります。その場合は「書き出し／読み込み」をご利用ください。</p>
+    </div>
+  </dialog>
+
+  <script>
+    // After DOM: replace %URL% placeholder in bookmarklet with current location
+    document.querySelectorAll('a[href*="%URL%"]').forEach(a=>{
+      a.href = a.href.replace('%URL%', location.origin + location.pathname);
+    });
+  </script>
+</body>
+</html>

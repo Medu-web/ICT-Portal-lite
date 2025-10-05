@@ -1,0 +1,65 @@
+{
+  "v": 1,
+  "links": [
+    {
+      "title": "StuDX Style（文科省）",
+      "url": "https://www.mext.go.jp/studxstyle/",
+      "category": "行政",
+      "icon": "🏛️"
+    },
+    {
+      "title": "Scratch",
+      "url": "https://scratch.mit.edu/",
+      "category": "プログラミング",
+      "icon": "🐱"
+    },
+    {
+      "title": "ドリルプラネット",
+      "url": "https://www.drill-planet.jp/",
+      "category": "ドリル",
+      "icon": "🪐"
+    },
+    {
+      "title": "NHK for School",
+      "url": "https://www.nhk.or.jp/school/",
+      "category": "動画教材",
+      "icon": "📺"
+    },
+    {
+      "title": "micro:bit 公式",
+      "url": "https://microbit.org/ja/",
+      "category": "プログラミング",
+      "icon": "🤖"
+    },
+    {
+      "title": "Viscuit（ビスケット）",
+      "url": "https://www.viscuit.com/",
+      "category": "プログラミング",
+      "icon": "🧩"
+    },
+    {
+      "title": "e-typing",
+      "url": "https://www.e-typing.ne.jp/",
+      "category": "タイピング",
+      "icon": "⌨️"
+    },
+    {
+      "title": "Google Arts & Culture",
+      "url": "https://artsandculture.google.com/",
+      "category": "探究・図工・美術",
+      "icon": "🎨"
+    },
+    {
+      "title": "Microsoft 365 ポータル",
+      "url": "https://www.office.com/",
+      "category": "校務",
+      "icon": "🗂️"
+    },
+    {
+      "title": "Microsoft Teams（Web）",
+      "url": "https://teams.microsoft.com/",
+      "category": "校務",
+      "icon": "💬"
+    }
+  ]
+}
